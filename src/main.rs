@@ -1,67 +1,44 @@
-use chrono::{Duration, NaiveDateTime, Utc};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
+mod routes;
 
-#[derive(Serialize, Deserialize)]
-enum UserRole {
-    Requester,
-    Host,
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Router,
+};
+use std::net::SocketAddr;
+
+#[tokio::main]
+async fn main() {
+    let app = Router::new().merge(routes::router());
+
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    println!("listening on {}", addr);
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
 }
 
-#[derive(Serialize, Deserialize)]
-struct User {
-    id: Uuid,
-    role: UserRole,
-    name: String,
-    email: String,
+pub struct AppError(anyhow::Error);
+
+// Tell axum how to convert `AppError` into a response.
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Something went wrong: {}", self.0),
+        )
+            .into_response()
+    }
 }
 
-#[derive(Serialize, Deserialize)]
-struct Message {
-    user_id: Uuid,
-    posted_at: NaiveDateTime,
-    editted_at: NaiveDateTime,
-    text: String,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Thread {
-    question: Message,
-    answer: Message,
-    comments: Vec<Message>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct QandA {
-    id: Uuid,
-    created_at: NaiveDateTime,
-    expires_at: NaiveDateTime,
-    host: User,
-    users: Vec<User>,
-    questions: Vec<Thread>,
-}
-
-fn main() {
-    let user_a = User {
-        id: Uuid::new_v4(),
-        role: UserRole::Requester,
-        name: "Dave".to_string(),
-        email: "example@example.com".to_string(),
-    };
-
-    let host = User {
-        id: Uuid::new_v4(),
-        role: UserRole::Host,
-        name: "Theodore".to_string(),
-        email: "host@example.com".to_string(),
-    };
-
-    let new_session = QandA {
-        id: Uuid::new_v4(),
-        created_at: Utc::now(),
-        expires_at: Utc::now() + Duration::day(60),
-        host: host,
-        users: vec![user_a],
-        questions: Vec::new(),
-    };
+// This enables using `?` on functions that return `Result<_, anyhow::Error>` to turn them into
+// `Result<_, AppError>`. That way you don't need to do that manually.
+impl<E> From<E> for AppError
+where
+    E: Into<anyhow::Error>,
+{
+    fn from(err: E) -> Self {
+        Self(err.into())
+    }
 }

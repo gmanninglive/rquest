@@ -11,8 +11,8 @@ use std::net::SocketAddr;
 async fn main() {
     let app = Router::new().merge(routes::router());
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    println!("listening on {}", addr);
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3030));
+    println!("listening on address: {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await

@@ -15,6 +15,8 @@ services:
       dockerfile: ./api/Dockerfile
     depends_on:
       - db
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@db:5432 
     ports:
       - "3030:3030"
     volumes:

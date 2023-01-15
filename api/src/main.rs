@@ -1,4 +1,6 @@
+mod http;
 mod routes;
+mod types;
 
 use axum::{
     http::StatusCode,
@@ -9,7 +11,7 @@ use sqlx::postgres::{PgPool, PgPoolOptions};
 use std::net::SocketAddr;
 
 #[derive(Clone)]
-pub struct State {
+pub struct AppState {
     db: PgPool,
 }
 
@@ -28,8 +30,8 @@ async fn main() -> Result<(), anyhow::Error> {
     sqlx::migrate!("./migrations").run(&pool).await?;
 
     let app = Router::new()
-        .with_state(State { db: pool })
-        .merge(routes::router());
+        .merge(routes::api_router())
+        .with_state(AppState { db: pool });
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3030));
     println!("listening on address: {}", addr);

@@ -4,17 +4,10 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize)]
-enum UserRole {
-    Requester,
-    Host,
-}
-
-#[derive(Serialize, Deserialize)]
 struct User {
-    id: Uuid,
-    role: UserRole,
-    name: String,
+    username: String,
     email: String,
+    image: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -44,17 +37,15 @@ struct QandA {
 
 async fn handler() -> impl IntoResponse {
     let user_a = User {
-        id: Uuid::new_v4(),
-        role: UserRole::Requester,
-        name: "Dave".to_string(),
+        username: "Dave".to_string(),
         email: "example@example.com".to_string(),
+        image: None,
     };
 
     let host = User {
-        id: Uuid::new_v4(),
-        role: UserRole::Host,
-        name: "Theodore".to_string(),
+        username: "Theodore".to_string(),
         email: "host@example.com".to_string(),
+        image: None,
     };
 
     let new_session = QandA {

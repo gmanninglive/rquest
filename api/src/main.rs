@@ -14,7 +14,7 @@ pub struct State {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), anyhow::Error> {
     let db_connection_str = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:postgres@db:5432".to_string());
 
@@ -25,7 +25,11 @@ async fn main() {
         .await
         .expect("can't connect to database");
 
-    let app = Router::new().with_state(State { db: pool}).merge(routes::router());
+    sqlx::migrate!("./migrations").run(&pool).await?;
+
+    let app = Router::new()
+        .with_state(State { db: pool })
+        .merge(routes::router());
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3030));
     println!("listening on address: {}", addr);
@@ -33,6 +37,8 @@ async fn main() {
         .serve(app.into_make_service())
         .await
         .unwrap();
+
+    Ok(())
 }
 
 pub struct AppError(anyhow::Error);

@@ -69,6 +69,12 @@ async fn handler() -> impl IntoResponse {
     (StatusCode::OK, Json(new_session))
 }
 
+async fn new() -> impl IntoResponse {
+    (StatusCode::OK, "test")
+}
+
 pub fn router() -> Router {
-    Router::new().route("/", get(handler))
+    Router::new()
+        .route("/", get(handler))
+        .route("/new", get(new))
 }

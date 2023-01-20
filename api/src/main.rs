@@ -1,3 +1,4 @@
+mod models;
 mod http;
 mod routes;
 mod types;

@@ -12,6 +12,9 @@ pub struct Model {
     pub username: String,
     #[sea_orm(column_type = "Text", unique)]
     pub email: String,
+    #[sea_orm(column_type = "Text")]
+    #[serde(skip_deserializing, skip_serializing)]
+    pub password_hash: String,
     #[sea_orm(column_type = "Text", nullable)]
     pub image: Option<String>,
     pub created_at: DateTimeWithTimeZone,

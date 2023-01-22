@@ -61,8 +61,8 @@ impl MigrationTrait for Migration {
         $$ language plpgsql;
         "#,
             r#"
-           CREATE TRIGGER trigger_posted_at 
-                BEFORE UPDATE
+           CREATE OR REPLACE TRIGGER trigger_posted_at 
+                BEFORE INSERT OR UPDATE
                 ON "message" 
                 FOR EACH ROW
                 WHEN (NEW.state = 1)

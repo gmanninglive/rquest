@@ -10,9 +10,10 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 #[derive(Deserialize)]
-struct UserBody {
+struct CreateBody {
     username: String,
     email: String,
+    password: String,
 }
 #[derive(Deserialize)]
 struct UpdateBody {
@@ -23,14 +24,16 @@ struct UpdateBody {
 
 async fn create_user(
     State(state): State<AppState>,
-    Json(req): Json<UserBody>,
+    Json(req): Json<CreateBody>,
 ) -> Result<Json<user::Model>> {
     let user = user::ActiveModel {
         username: ActiveValue::Set(req.username),
         email: ActiveValue::Set(req.email),
+        password_hash: ActiveValue::Set(super::auth::hash_password(req.password).await?),
         ..Default::default()
     }
-    .insert(&state.db).await?;
+    .insert(&state.db)
+    .await?;
 
     Ok(Json(user))
 }

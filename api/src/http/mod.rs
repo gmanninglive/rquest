@@ -1,3 +1,5 @@
+pub mod extractor;
+
 use axum::body::BoxBody;
 use axum::http::header::WWW_AUTHENTICATE;
 use axum::http::{HeaderMap, HeaderValue, Response, StatusCode};
@@ -167,13 +169,15 @@ impl IntoResponse for Error {
                 //log::error!("Generic error: {:?}", e);
             }
 
-            Self::Seaorm(ref e) => {
-                match e {
-                 DbErr::Exec(RuntimeErr::SqlxError(e)) => { return (StatusCode::UNPROCESSABLE_ENTITY, e.to_string()).into_response(); },
-                 DbErr::Query(RuntimeErr::SqlxError(e)) => { return (StatusCode::UNPROCESSABLE_ENTITY, e.to_string()).into_response(); },
-                 _ => ()
+            Self::Seaorm(ref e) => match e {
+                DbErr::Exec(RuntimeErr::SqlxError(e)) => {
+                    return (StatusCode::UNPROCESSABLE_ENTITY, e.to_string()).into_response();
                 }
-            }
+                DbErr::Query(RuntimeErr::SqlxError(e)) => {
+                    return (StatusCode::UNPROCESSABLE_ENTITY, e.to_string()).into_response();
+                }
+                _ => (),
+            },
 
             // Other errors get mapped normally.
             _ => (),

@@ -16,7 +16,7 @@ services:
     depends_on:
       - db
     environment:
-      - DATABASE_URL=postgres://postgres:postgres@db:5432 
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/rq_dev
     ports:
       - "3030:3030"
     volumes:

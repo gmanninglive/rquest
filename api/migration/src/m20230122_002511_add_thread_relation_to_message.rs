@@ -45,30 +45,12 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 Table::alter()
+                    .table(Message::Table)
                     .drop_column(Message::ThreadQuestionId)
                     .drop_column(Message::ThreadAnswerId)
                     .to_owned(),
             )
             .await?;
-
-        manager
-            .drop_foreign_key(
-                ForeignKey::drop()
-                    .name("fk-thread-question-id")
-                    .table(Message::Table)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .drop_foreign_key(
-                ForeignKey::drop()
-                    .name("fk-thread-answer-id")
-                    .table(Message::Table)
-                    .to_owned(),
-            )
-            .await?;
-
         Ok(())
     }
 }

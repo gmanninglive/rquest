@@ -34,6 +34,7 @@ impl MigrationTrait for Migration {
                             .unique_key()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(User::PasswordHash).text().not_null())
                     .col(ColumnDef::new(User::Image).text())
                     .col(
                         ColumnDef::new(User::CreatedAt)
@@ -76,6 +77,7 @@ pub enum User {
     Username,
     Email,
     Image,
+    PasswordHash,
     CreatedAt,
     UpdatedAt,
 }

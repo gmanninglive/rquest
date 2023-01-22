@@ -41,7 +41,7 @@ impl MigrationTrait for Migration {
         "#,
         // Finally, this is a text collation that sorts text case-insensitively, useful for `UNIQUE` indexes
         r#"
-        CREATE collation case_insensitive (provider = icu, locale = 'und-u-ks-level2', deterministic = false);
+        CREATE collation IF NOT EXISTS case_insensitive (provider = icu, locale = 'und-u-ks-level2', deterministic = false);
         "#
         ].map(|sql| Statement::from_string(manager.get_database_backend(), sql.to_owned()));
 

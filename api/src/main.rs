@@ -14,6 +14,7 @@ use std::net::SocketAddr;
 pub struct AppState {
     #[allow(dead_code)]
     db: DatabaseConnection,
+    hmac_key: String,
 }
 
 #[tokio::main]
@@ -21,11 +22,16 @@ async fn main() -> Result<(), anyhow::Error> {
     let db_connection_str = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:postgres@db:5432".to_string());
 
+    dotenvy::dotenv().unwrap();
+
     let pool: DatabaseConnection = Database::connect(&db_connection_str).await?;
 
     let app = Router::new()
         .merge(routes::api_router())
-        .with_state(AppState { db: pool });
+        .with_state(AppState {
+            db: pool,
+            hmac_key: std::env::var("HMAC_KEY").unwrap(),
+        });
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3030));
     println!("listening on address: {}", addr);

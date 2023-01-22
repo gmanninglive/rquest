@@ -1,4 +1,3 @@
-mod models;
 mod http;
 mod routes;
 mod types;
@@ -13,6 +12,7 @@ use std::net::SocketAddr;
 
 #[derive(Clone)]
 pub struct AppState {
+    #[allow(dead_code)]
     db: PgPool,
 }
 

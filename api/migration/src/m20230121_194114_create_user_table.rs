@@ -23,13 +23,13 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(User::Username)
                          .text()
-                         .extra(String::from("collate 'case_insensitive'"))
+                         .extra(String::from(r#"collate "case_insensitive""#))
                          .unique_key()
                          .not_null()
                     )
                     .col(ColumnDef::new(User::Email)
                          .text()
-                         .extra(String::from("collate 'case_insensitive'"))
+                         .extra(String::from(r#"collate "case_insensitive""#))
                          .unique_key()
                          .not_null()
                     )
@@ -39,7 +39,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::CreatedAt)
                          .timestamp_with_time_zone()
                          .not_null()
-                         .default(Expr::current_time())
+                         .default(Expr::cust("now()"))
                     )
                     .col(ColumnDef::new(User::UpdatedAt)
                          .timestamp_with_time_zone()
@@ -50,7 +50,7 @@ impl MigrationTrait for Migration {
         
         // create set_updated_at trigger
         let stmt = Statement::from_string(manager.get_database_backend(), 
-                    r#"SELECT trigger_updated_at("user")"#.to_owned());
+                    r#"SELECT trigger_updated_at('"user"')"#.to_owned());
         manager.get_connection().execute(stmt).await.map(|_| ())
     }
 
@@ -61,14 +61,14 @@ impl MigrationTrait for Migration {
 
         // drop set_updated_at trigger
         let stmt = Statement::from_string(manager.get_database_backend(), 
-                    r#"DROP TRIGGER IF EXISTS set_updated_at ON "user""#.to_owned());
+                    r#"DROP TRIGGER IF EXISTS trigger_updated_at ON "user""#.to_owned());
         manager.get_connection().execute(stmt).await.map(|_| ())
     }
 }
 
 /// Learn more at https://docs.rs/sea-query#iden
 #[derive(Iden)]
-enum User {
+pub enum User {
     Table,
     Id,
     Username,

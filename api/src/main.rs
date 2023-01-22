@@ -7,13 +7,13 @@ use axum::{
     response::{IntoResponse, Response},
     Router,
 };
-use sqlx::postgres::{PgPool, PgPoolOptions};
+use sea_orm::{Database, DatabaseConnection};
 use std::net::SocketAddr;
 
 #[derive(Clone)]
 pub struct AppState {
     #[allow(dead_code)]
-    db: PgPool,
+    db: DatabaseConnection,
 }
 
 #[tokio::main]
@@ -21,14 +21,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let db_connection_str = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:postgres@db:5432".to_string());
 
-    // setup connection pool
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&db_connection_str)
-        .await
-        .expect("can't connect to database");
-
-    sqlx::migrate!("./migrations").run(&pool).await?;
+    let pool: DatabaseConnection = Database::connect(&db_connection_str).await?;
 
     let app = Router::new()
         .merge(routes::api_router())

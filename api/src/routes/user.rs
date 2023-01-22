@@ -1,45 +1,97 @@
 use crate::{http::*, AppState};
 use axum::{
-    extract::State,
-    routing::{get, post},
+    extract::{Path, State},
+    routing::{delete, get, patch, post},
     Json, Router,
 };
-use serde::{Deserialize, Serialize};
+use entity::{user, user::Entity as User};
+use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, Set};
+use serde::Deserialize;
+use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, sqlx::FromRow)]
-pub struct User {
+#[derive(Deserialize)]
+struct UserBody {
     username: String,
     email: String,
+}
+#[derive(Deserialize)]
+struct UpdateBody {
+    username: Option<String>,
+    email: Option<String>,
     image: Option<String>,
 }
 
-async fn create_user(State(state): State<AppState>, Json(req): Json<User>) -> Result<Json<User>> {
-    //sqlx::query_scalar!(
-        //r#"insert into "user" (username, email) values ($1, $2) returning user_id"#,
-        //req.username,
-        //req.email,
-    //)
-    //.fetch_one(&state.db)
-    //.await
-    //.on_constraint("user_username_key", |_| {
-        //Error::unprocessable_entity([("username", "username taken")])
-    //})
-    //.on_constraint("user_email_key", |_| {
-        //Error::unprocessable_entity([("email", "email taken")])
-    //})?;
+async fn create_user(
+    State(state): State<AppState>,
+    Json(req): Json<UserBody>,
+) -> Result<Json<user::Model>> {
+    let user = user::ActiveModel {
+        username: ActiveValue::Set(req.username),
+        email: ActiveValue::Set(req.email),
+        ..Default::default()
+    }
+    .insert(&state.db).await?;
 
-    Ok(Json(User {
-        email: req.email,
-        username: req.username,
-        image: None,
-    }))
+    Ok(Json(user))
 }
 
-async fn index(State(state): State<AppState>) -> Result<Json<Vec<User>>> {
-    //let users = sqlx::query_as::<_, User>(r#"SELECT * FROM "user""#)
-        //.fetch_all(&state.db)
-        //.await?;
-    let users: Vec<User> = vec![];
+async fn find_by_id(
+    State(state): State<AppState>,
+    Path(user_id): Path<Uuid>,
+) -> Result<Json<user::Model>> {
+    let user = User::find_by_id(user_id).one(&state.db).await?;
+
+    match user {
+        Some(u) => Ok(Json(u)),
+        None => Err(Error::NotFound("user")),
+    }
+}
+
+async fn update_user(
+    State(state): State<AppState>,
+    Path(user_id): Path<Uuid>,
+    Json(req): Json<UpdateBody>,
+) -> Result<Json<user::Model>> {
+    let user = User::find_by_id(user_id)
+        .one(&state.db)
+        .await?
+        .ok_or(Error::NotFound("user"))?;
+
+    let res = user::ActiveModel {
+        id: ActiveValue::Unchanged(user.id),
+        username: match req.username {
+            Some(username) => Set(username),
+            None => ActiveValue::Unchanged(user.username),
+        },
+        email: match req.email {
+            Some(email) => Set(email),
+            None => ActiveValue::Unchanged(user.email),
+        },
+        image: match req.image {
+            Some(image) => Set(Some(image)),
+            None => ActiveValue::Unchanged(user.image),
+        },
+        ..Default::default()
+    }
+    .update(&state.db)
+    .await?;
+
+    Ok(Json(res))
+}
+
+async fn delete_user(State(state): State<AppState>, Path(user_id): Path<Uuid>) -> Result<()> {
+    let user: user::ActiveModel = User::find_by_id(user_id)
+        .one(&state.db)
+        .await?
+        .ok_or(Error::NotFound("user"))
+        .map(Into::into)?;
+
+    user.delete(&state.db).await?;
+    Ok(())
+}
+
+async fn index(State(state): State<AppState>) -> Result<Json<Vec<user::Model>>> {
+    let users = User::find().all(&state.db).await?;
 
     Ok(Json(users))
 }
@@ -47,5 +99,8 @@ async fn index(State(state): State<AppState>) -> Result<Json<Vec<User>>> {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/users", get(index))
-        .route("/user/create", post(create_user))
+        .route("/user/:user_id", get(find_by_id))
+        .route("/user/update/:user_id", patch(update_user).put(update_user))
+        .route("/user/delete/:user_id", delete(delete_user))
+        .route("/user/new", post(create_user))
 }

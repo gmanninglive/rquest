@@ -1,7 +1,7 @@
-use sea_orm_migration::sea_orm::ConnectionTrait;
+use super::m20230121_194114_create_user_table::User;
 use sea_orm::Statement;
 use sea_orm_migration::prelude::*;
-use super::m20230121_194114_create_user_table::User;
+use sea_orm_migration::sea_orm::ConnectionTrait;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -9,7 +9,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-         manager
+        manager
             .create_table(
                 Table::create()
                     .table(Message::Table)
@@ -21,42 +21,35 @@ impl MigrationTrait for Migration {
                             .default(Expr::cust("uuid_generate_v1mc()"))
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(Message::UserId)
-                            .uuid()
-                    )
+                    .col(ColumnDef::new(Message::UserId).uuid())
                     .foreign_key(
                         ForeignKey::create()
-                        .name("fk-user-id")
-                        .from(Message::Table, Message::UserId)
-                        .to(User::Table, User::Id)
-                        .on_delete(ForeignKeyAction::SetNull),
+                            .name("fk-user-id")
+                            .from(Message::Table, Message::UserId)
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::SetNull),
                     )
-                    .col(ColumnDef::new(Message::Text)
-                         .text()
+                    .col(ColumnDef::new(Message::Text).text())
+                    .col(
+                        ColumnDef::new(Message::State)
+                            .small_integer()
+                            .not_null()
+                            .default(0),
                     )
-                    .col(ColumnDef::new(Message::State)
-                         .small_integer()
-                         .not_null()
-                         .default(0)
+                    .col(
+                        ColumnDef::new(Message::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::cust("now()")),
                     )
-                    .col(ColumnDef::new(Message::CreatedAt)
-                         .timestamp_with_time_zone()
-                         .not_null()
-                         .default(Expr::cust("now()"))
-                    )
-                    .col(ColumnDef::new(Message::PostedAt)
-                         .timestamp_with_time_zone()
-                    )
-                    .col(ColumnDef::new(Message::UpdatedAt)
-                         .timestamp_with_time_zone()
-                    )
+                    .col(ColumnDef::new(Message::PostedAt).timestamp_with_time_zone())
+                    .col(ColumnDef::new(Message::UpdatedAt).timestamp_with_time_zone())
                     .to_owned(),
             )
             .await?;
 
-
-        let stmts = [r#"
+        let stmts = [
+            r#"
         CREATE OR REPLACE function set_posted_at()
             returns trigger as
         $$
@@ -67,8 +60,7 @@ impl MigrationTrait for Migration {
         end;
         $$ language plpgsql;
         "#,
-        
-        r#"
+            r#"
            CREATE TRIGGER trigger_posted_at 
                 BEFORE UPDATE
                 ON "message" 
@@ -76,12 +68,10 @@ impl MigrationTrait for Migration {
                 WHEN (NEW.state = 1)
            EXECUTE FUNCTION set_posted_at();
         "#,
-        r#"SELECT trigger_updated_at('"message"')"#
-        ].map(|sql| {
-        Statement::from_string(manager.get_database_backend(), 
-                    sql.to_owned())
-        });
-       
+            r#"SELECT trigger_updated_at('"message"')"#,
+        ]
+        .map(|sql| Statement::from_string(manager.get_database_backend(), sql.to_owned()));
+
         for stmt in stmts {
             manager.get_connection().execute(stmt).await.map(|_| ())?;
         }
@@ -96,7 +86,7 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(Iden)]
-enum Message {
+pub enum Message {
     Table,
     Id,
     UserId,
@@ -104,5 +94,5 @@ enum Message {
     State,
     PostedAt,
     CreatedAt,
-    UpdatedAt
+    UpdatedAt,
 }

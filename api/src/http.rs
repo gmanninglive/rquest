@@ -3,6 +3,7 @@ use axum::http::header::WWW_AUTHENTICATE;
 use axum::http::{HeaderMap, HeaderValue, Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::Json;
+use sea_orm::{DbErr, RuntimeErr};
 use sqlx::error::DatabaseError;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -28,9 +29,9 @@ pub enum Error {
     Forbidden,
 
     /// Return `404 Not Found`
-    #[error("request path not found")]
+    #[error("`{0}` not found")]
     #[allow(dead_code)]
-    NotFound,
+    NotFound(&'static str),
 
     /// Return `422 Unprocessable Entity`
     ///
@@ -79,6 +80,9 @@ pub enum Error {
     /// for security reasons.
     #[error("an internal server error occurred")]
     Anyhow(#[from] anyhow::Error),
+
+    #[error("an internal server error occurred")]
+    Seaorm(#[from] sea_orm::DbErr),
 }
 
 impl Error {
@@ -108,9 +112,9 @@ impl Error {
         match self {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::Forbidden => StatusCode::FORBIDDEN,
-            Self::NotFound => StatusCode::NOT_FOUND,
+            Self::NotFound { .. } => StatusCode::NOT_FOUND,
             Self::UnprocessableEntity { .. } => StatusCode::UNPROCESSABLE_ENTITY,
-            Self::Sqlx(_) | Self::Anyhow(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::Sqlx(_) | Self::Anyhow(_) | Self::Seaorm(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
@@ -161,6 +165,14 @@ impl IntoResponse for Error {
                 // TODO: we probably want to use `tracing` instead
                 // so that this gets linked to the HTTP request by `TraceLayer`.
                 //log::error!("Generic error: {:?}", e);
+            }
+
+            Self::Seaorm(ref e) => {
+                match e {
+                 DbErr::Exec(RuntimeErr::SqlxError(e)) => { return (StatusCode::UNPROCESSABLE_ENTITY, e.to_string()).into_response(); },
+                 DbErr::Query(RuntimeErr::SqlxError(e)) => { return (StatusCode::UNPROCESSABLE_ENTITY, e.to_string()).into_response(); },
+                 _ => ()
+                }
             }
 
             // Other errors get mapped normally.

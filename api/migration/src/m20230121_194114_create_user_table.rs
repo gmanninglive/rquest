@@ -1,6 +1,6 @@
-use sea_orm_migration::sea_orm::ConnectionTrait;
 use sea_orm::Statement;
 use sea_orm_migration::prelude::*;
+use sea_orm_migration::sea_orm::ConnectionTrait;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -8,8 +8,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-
-         manager
+        manager
             .create_table(
                 Table::create()
                     .table(User::Table)
@@ -21,36 +20,37 @@ impl MigrationTrait for Migration {
                             .default(Expr::cust("uuid_generate_v1mc()"))
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(User::Username)
-                         .text()
-                         .extra(String::from(r#"collate "case_insensitive""#))
-                         .unique_key()
-                         .not_null()
+                    .col(
+                        ColumnDef::new(User::Username)
+                            .text()
+                            .extra(String::from(r#"collate "case_insensitive""#))
+                            .unique_key()
+                            .not_null(),
                     )
-                    .col(ColumnDef::new(User::Email)
-                         .text()
-                         .extra(String::from(r#"collate "case_insensitive""#))
-                         .unique_key()
-                         .not_null()
+                    .col(
+                        ColumnDef::new(User::Email)
+                            .text()
+                            .extra(String::from(r#"collate "case_insensitive""#))
+                            .unique_key()
+                            .not_null(),
                     )
-                    .col(ColumnDef::new(User::Image)
-                         .text()
+                    .col(ColumnDef::new(User::Image).text())
+                    .col(
+                        ColumnDef::new(User::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::cust("now()")),
                     )
-                    .col(ColumnDef::new(User::CreatedAt)
-                         .timestamp_with_time_zone()
-                         .not_null()
-                         .default(Expr::cust("now()"))
-                    )
-                    .col(ColumnDef::new(User::UpdatedAt)
-                         .timestamp_with_time_zone()
-                    )
+                    .col(ColumnDef::new(User::UpdatedAt).timestamp_with_time_zone())
                     .to_owned(),
             )
             .await?;
-        
+
         // create set_updated_at trigger
-        let stmt = Statement::from_string(manager.get_database_backend(), 
-                    r#"SELECT trigger_updated_at('"user"')"#.to_owned());
+        let stmt = Statement::from_string(
+            manager.get_database_backend(),
+            r#"SELECT trigger_updated_at('"user"')"#.to_owned(),
+        );
         manager.get_connection().execute(stmt).await.map(|_| ())
     }
 
@@ -60,8 +60,10 @@ impl MigrationTrait for Migration {
             .await?;
 
         // drop set_updated_at trigger
-        let stmt = Statement::from_string(manager.get_database_backend(), 
-                    r#"DROP TRIGGER IF EXISTS trigger_updated_at ON "user""#.to_owned());
+        let stmt = Statement::from_string(
+            manager.get_database_backend(),
+            r#"DROP TRIGGER IF EXISTS trigger_updated_at ON "user""#.to_owned(),
+        );
         manager.get_connection().execute(stmt).await.map(|_| ())
     }
 }
@@ -75,5 +77,5 @@ pub enum User {
     Email,
     Image,
     CreatedAt,
-    UpdatedAt
+    UpdatedAt,
 }

@@ -1,7 +1,6 @@
-use sea_orm_migration::sea_orm::ConnectionTrait;
 use sea_orm::Statement;
 use sea_orm_migration::prelude::*;
-
+use sea_orm_migration::sea_orm::ConnectionTrait;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -9,12 +8,12 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        let stmt1 = r#"
+        let stmts = [
+        r#"
         CREATE EXTENSION if not exists "uuid-ossp";
-        "#;
-
+        "#, 
         // create a function to set default timestamp to now()
-        let stmt2 = r#"
+        r#"
         CREATE OR REPLACE function set_updated_at()
             returns trigger as
         $$
@@ -23,11 +22,10 @@ impl MigrationTrait for Migration {
             return NEW;
         end;
         $$ language plpgsql;
-        "#;
-        
-        // create trigger generation helper for updated_at column 
-        // usage `SELECT trigger_updated_at('<table_name>')
-        let stmt3 = r#"
+        "#,
+        // create trigger generation helper for updated_at column
+        // usage `SELECT trigger_updated_at('<table_name>') 
+        r#"
         CREATE OR REPLACE function trigger_updated_at(tablename regclass)
             returns void as
         $$
@@ -40,14 +38,12 @@ impl MigrationTrait for Migration {
             EXECUTE FUNCTION set_updated_at();', tablename);
         end;
         $$ language plpgsql;
-        "#;
+        "#,
         // Finally, this is a text collation that sorts text case-insensitively, useful for `UNIQUE` indexes
-        let stmt4 = r#"
+        r#"
         CREATE collation case_insensitive (provider = icu, locale = 'und-u-ks-level2', deterministic = false);
-        "#;
-        let stmts = [stmt1, stmt2, stmt3, stmt4].map(|sql| {
-             Statement::from_string(manager.get_database_backend(), sql.to_owned())
-        });
+        "#
+        ].map(|sql| Statement::from_string(manager.get_database_backend(), sql.to_owned()));
 
         for stmt in stmts {
             manager.get_connection().execute(stmt).await.map(|_| ())?;
@@ -59,4 +55,3 @@ impl MigrationTrait for Migration {
         Ok(())
     }
 }
-

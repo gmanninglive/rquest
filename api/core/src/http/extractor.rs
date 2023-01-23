@@ -1,6 +1,6 @@
 use crate::{http::Error, AppState};
 use async_trait::async_trait;
-use axum::extract::{FromRequestParts, State};
+use axum::extract::FromRequestParts;
 use axum::http::header::AUTHORIZATION;
 use axum::http::request::Parts;
 use axum::http::HeaderValue;
@@ -20,7 +20,7 @@ const SCHEME_PREFIX: &str = "Token ";
 ///
 /// Parses a JWT from the `Authorization: Token <token>` header.
 pub struct AuthUser {
-    pub user_id: Uuid,
+    pub id: Uuid,
 }
 
 /// Add this as a parameter to a handler function to optionally check if the user is logged in.
@@ -34,7 +34,7 @@ pub struct MaybeAuthUser(pub Option<AuthUser>);
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct AuthUserClaims {
-    user_id: Uuid,
+    id: Uuid,
     /// Standard JWT `exp` claim.
     exp: i64,
 }
@@ -45,7 +45,7 @@ impl AuthUser {
             .expect("HMAC-SHA-384 can accept any key length");
 
         AuthUserClaims {
-            user_id: self.user_id,
+            id: self.id,
             exp: (OffsetDateTime::now_utc() + DEFAULT_SESSION_LENGTH).unix_timestamp(),
         }
         .sign_with_key(&hmac)
@@ -124,16 +124,14 @@ impl AuthUser {
             return Err(Error::Unauthorized);
         }
 
-        Ok(Self {
-            user_id: claims.user_id,
-        })
+        Ok(Self { id: claims.id })
     }
 }
 
 impl MaybeAuthUser {
-    /// If this is `Self(Some(AuthUser))`, return `AuthUser::user_id`
-    pub fn user_id(&self) -> Option<Uuid> {
-        self.0.as_ref().map(|auth_user| auth_user.user_id)
+    /// If this is `Self(Some(AuthUser))`, return `AuthUser::id`
+    pub fn id(&self) -> Option<Uuid> {
+        self.0.as_ref().map(|auth_user| auth_user.id)
     }
 }
 

@@ -4,99 +4,42 @@ use axum::{
     routing::{delete, get, patch, post},
     Json, Router,
 };
+use core::{
+    mutation::user::{CreateParams, Mutation, UpdateParams},
+    query::user::Query,
+};
 use entity::{user, user::Entity as User};
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, Set};
-use serde::Deserialize;
+use sea_orm::EntityTrait;
 use uuid::Uuid;
-
-#[derive(Deserialize)]
-struct CreateBody {
-    username: String,
-    email: String,
-    password: String,
-}
-#[derive(Deserialize)]
-struct UpdateBody {
-    username: Option<String>,
-    email: Option<String>,
-    image: Option<String>,
-}
 
 async fn create_user(
     State(state): State<AppState>,
-    Json(req): Json<CreateBody>,
+    Json(req): Json<CreateParams>,
 ) -> Result<Json<user::Model>> {
-    let user = user::ActiveModel {
-        username: ActiveValue::Set(req.username),
-        email: ActiveValue::Set(req.email),
-        password_hash: ActiveValue::Set(super::auth::hash_password(req.password).await?),
-        ..Default::default()
-    }
-    .insert(&state.db)
-    .await?;
-
-    Ok(Json(user))
+    Ok(Json(Mutation::create(&state.db, req).await?))
 }
 
 async fn find_by_id(
     State(state): State<AppState>,
     Path(user_id): Path<Uuid>,
 ) -> Result<Json<user::Model>> {
-    let user = User::find_by_id(user_id).one(&state.db).await?;
-
-    match user {
-        Some(u) => Ok(Json(u)),
-        None => Err(Error::NotFound("user")),
-    }
+    Ok(Json(Query::find(&state.db, user_id).await?))
 }
 
 async fn update_user(
     State(state): State<AppState>,
     Path(user_id): Path<Uuid>,
-    Json(req): Json<UpdateBody>,
+    Json(req): Json<UpdateParams>,
 ) -> Result<Json<user::Model>> {
-    let user = User::find_by_id(user_id)
-        .one(&state.db)
-        .await?
-        .ok_or(Error::NotFound("user"))?;
-
-    let res = user::ActiveModel {
-        id: ActiveValue::Unchanged(user.id),
-        username: match req.username {
-            Some(username) => Set(username),
-            None => ActiveValue::Unchanged(user.username),
-        },
-        email: match req.email {
-            Some(email) => Set(email),
-            None => ActiveValue::Unchanged(user.email),
-        },
-        image: match req.image {
-            Some(image) => Set(Some(image)),
-            None => ActiveValue::Unchanged(user.image),
-        },
-        ..Default::default()
-    }
-    .update(&state.db)
-    .await?;
-
-    Ok(Json(res))
+    Ok(Json(Mutation::update(&state.db, user_id, req).await?))
 }
 
 async fn delete_user(State(state): State<AppState>, Path(user_id): Path<Uuid>) -> Result<()> {
-    let user: user::ActiveModel = User::find_by_id(user_id)
-        .one(&state.db)
-        .await?
-        .ok_or(Error::NotFound("user"))
-        .map(Into::into)?;
-
-    user.delete(&state.db).await?;
-    Ok(())
+    Ok(Mutation::delete(&state.db, user_id).await?)
 }
 
 async fn index(State(state): State<AppState>) -> Result<Json<Vec<user::Model>>> {
-    let users = User::find().all(&state.db).await?;
-
-    Ok(Json(users))
+    Ok(Json(User::find().all(&state.db).await?))
 }
 
 pub fn router() -> Router<AppState> {

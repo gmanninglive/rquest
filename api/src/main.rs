@@ -1,21 +1,11 @@
-mod http;
-mod routes;
-mod types;
-
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     Router,
 };
+use rquest::{routes, AppState};
 use sea_orm::{Database, DatabaseConnection};
 use std::net::SocketAddr;
-
-#[derive(Clone)]
-pub struct AppState {
-    #[allow(dead_code)]
-    db: DatabaseConnection,
-    hmac_key: String,
-}
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {

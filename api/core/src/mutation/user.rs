@@ -1,13 +1,13 @@
 use crate::auth::hash_password;
 use crate::http::Result;
-use crate::query::user::Query;
+use crate::query::user::UserQuery;
 use entity::user;
 use sea_orm::entity::*;
 use sea_orm::DbConn;
 use serde::Deserialize;
 use uuid::Uuid;
 
-pub struct Mutation {}
+pub struct UserMutation {}
 
 #[derive(Deserialize)]
 pub struct UpdateParams {
@@ -23,7 +23,7 @@ pub struct CreateParams {
     password: String,
 }
 
-impl Mutation {
+impl UserMutation {
     pub async fn create(db: &DbConn, req: CreateParams) -> Result<user::Model> {
         let user = user::ActiveModel {
             username: ActiveValue::Set(req.username),
@@ -37,7 +37,7 @@ impl Mutation {
         Ok(user)
     }
     pub async fn update(db: &DbConn, user_id: Uuid, req: UpdateParams) -> Result<user::Model> {
-        let user = Query::find(db, user_id).await?;
+        let user = UserQuery::find(db, user_id).await?;
 
         let res = user::ActiveModel {
             id: ActiveValue::Unchanged(user.id),
@@ -65,7 +65,7 @@ impl Mutation {
         user_id: Uuid,
         password: String,
     ) -> Result<user::Model> {
-        let user = Query::find(db, user_id).await?;
+        let user = UserQuery::find(db, user_id).await?;
 
         let res = user::ActiveModel {
             id: ActiveValue::Unchanged(user.id),
@@ -78,7 +78,7 @@ impl Mutation {
         Ok(res)
     }
     pub async fn delete(db: &DbConn, user_id: Uuid) -> Result<()> {
-        let user: user::ActiveModel = Query::find(db, user_id).await.map(Into::into)?;
+        let user: user::ActiveModel = UserQuery::find(db, user_id).await.map(Into::into)?;
 
         user.delete(db).await?;
         Ok(())

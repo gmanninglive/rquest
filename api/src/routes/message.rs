@@ -6,7 +6,7 @@ use axum::{
     Json, Router,
 };
 use core::{
-    mutation::message::{Mutation, NewMessageParams},
+    mutation::message::{MessageMutation, NewMessageParams},
     query::message::Query,
 };
 use entity::message;
@@ -17,7 +17,16 @@ async fn new_message(
     State(state): State<AppState>,
     Json(req): Json<NewMessageParams>,
 ) -> Result<Json<message::Model>> {
-    Ok(Json(Mutation::new(&state.db, req).await?))
+    Ok(Json(
+        MessageMutation::new(
+            &state.db,
+            NewMessageParams {
+                user_id: auth_user.id,
+                ..req
+            },
+        )
+        .await?,
+    ))
 }
 
 async fn get_message(

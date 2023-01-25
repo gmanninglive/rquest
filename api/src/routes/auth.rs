@@ -3,11 +3,12 @@ use crate::http::Result;
 use crate::AppState;
 use axum::{
     extract::State,
-    routing::{delete, get, post},
+    routing::{get, post},
     Json, Router,
 };
 use core::auth::verify_password;
-use core::query::user::Query as UserQuery;
+use core::query::user::{user, UserQuery};
+use sea_orm::entity::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -30,7 +31,7 @@ async fn login_user(
     State(state): State<AppState>,
     Json(req): Json<LoginUser>,
 ) -> Result<Json<UserSession>> {
-    let user = UserQuery::find_by_email(&state.db, req.email).await?;
+    let user = UserQuery::find_by(&state.db, user::Column::Email.eq(req.email)).await?;
 
     verify_password(req.password, user.password_hash).await?;
 

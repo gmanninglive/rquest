@@ -7,16 +7,16 @@ use uuid::Uuid;
 
 #[derive(Deserialize)]
 pub struct NewMessageParams {
-    user_id: Uuid,
-    text: String,
-    as_question_thread_id: Option<Uuid>,
-    as_answer_thread_id: Option<Uuid>,
-    publish: Option<bool>,
+    pub user_id: Uuid,
+    pub text: String,
+    pub as_question_thread_id: Option<Uuid>,
+    pub as_answer_thread_id: Option<Uuid>,
+    pub publish: Option<bool>,
 }
 
-pub struct Mutation {}
+pub struct MessageMutation {}
 
-impl Mutation {
+impl MessageMutation {
     pub async fn new(db: &DbConn, req: NewMessageParams) -> Result<message::Model> {
         let message = message::ActiveModel {
             user_id: ActiveValue::Set(Some(req.user_id)),

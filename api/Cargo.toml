@@ -12,7 +12,7 @@ uuid = { version = "1.2.2", features = ["v1", "serde"] }
 
 [dependencies]
 entity = { path = "./entity" }
-core = { path = "./core" }
+rquest_core = { path = "./core" }
 
 anyhow = "1.0.68"
 axum = "0.6.2"

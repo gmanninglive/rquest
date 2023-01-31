@@ -237,3 +237,26 @@ where
         })
     }
 }
+
+use async_trait::async_trait;
+use sea_orm::{DbConn, EntityTrait, Select};
+#[async_trait]
+pub trait Helpers<S>
+where
+    S: EntityTrait,
+{
+    /// Fetches one or returns a NotFound error
+    async fn one_or_nf(self, db: &DbConn, entity_name: &'static str) -> Result<S::Model>;
+}
+
+#[async_trait]
+impl<S> Helpers<S> for Select<S>
+where
+    S: EntityTrait,
+{
+    async fn one_or_nf(self, db: &DbConn, entity_name: &'static str) -> Result<S::Model> {
+        Self::one(self, db)
+            .await?
+            .ok_or_else(|| Error::NotFound(entity_name))
+    }
+}

@@ -1,5 +1,5 @@
 [package]
-name = "core"
+name = "rquest_core"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +7,7 @@ edition = "2021"
 anyhow = "1.0.68"
 async-trait = "0.1.63"
 axum = "0.6.2"
-entity = { path = "../entity" }
+#entity = { path = "../entity" }
 
 uuid = { workspace = true }
 chrono = { version = "0.4.23", features = ["serde"] }

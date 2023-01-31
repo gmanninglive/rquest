@@ -6,9 +6,8 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use core::auth::verify_password;
-use core::query::user::{user, UserQuery};
-use sea_orm::entity::*;
+use entity::user::Entity as User;
+use rquest_core::{auth::*, http::*};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -31,7 +30,9 @@ async fn login_user(
     State(state): State<AppState>,
     Json(req): Json<LoginUser>,
 ) -> Result<Json<UserSession>> {
-    let user = UserQuery::find_by(&state.db, user::Column::Email.eq(req.email)).await?;
+    let user = User::find_by_email(req.email)
+        .one_or_nf(&state.db, "user")
+        .await?;
 
     verify_password(req.password, user.password_hash).await?;
 
@@ -48,7 +49,9 @@ async fn get_current_user(
     auth_user: AuthUser,
     State(state): State<AppState>,
 ) -> Result<Json<UserSession>> {
-    let user = UserQuery::find(&state.db, auth_user.id).await?;
+    let user = User::find_by_id(auth_user.id)
+        .one_or_nf(&state.db, "user")
+        .await?;
 
     Ok(Json(UserSession {
         id: user.id,

@@ -18,9 +18,7 @@ async fn find_by_id(
     State(state): State<AppState>,
     Path(user_id): Path<Uuid>,
 ) -> Result<Json<Model>> {
-    Ok(Json(
-        <User as Query<Model>>::find_by_id(&state.db, user_id).await?,
-    ))
+    Ok(Json(User::find_by_id(&state.db, user_id).await?))
 }
 
 async fn update_user(

@@ -70,12 +70,14 @@ pub enum MessageState {
     Posted = 1,
 }
 
+/// Private methods
 impl Entity {
-    pub fn find_by_id(id: Uuid) -> Select<Entity> {
+    fn find_by_id(id: Uuid) -> Select<Entity> {
         Self::find().filter(Column::Id.eq(id))
     }
 }
 
+/// Public interface for querying messages
 #[async_trait]
 pub trait Query<T> {
     async fn find_by_id(db: &DbConn, id: Uuid) -> Result<T>;
@@ -102,6 +104,7 @@ pub struct CreateParams {
     pub publish: Option<bool>,
 }
 
+/// Public interface for updating messages
 #[async_trait]
 pub trait Mutation<T> {
     async fn create(db: &DbConn, req: CreateParams) -> Result<T>;

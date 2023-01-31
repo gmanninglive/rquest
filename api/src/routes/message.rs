@@ -30,9 +30,7 @@ async fn get_message(
     State(state): State<AppState>,
     Path(message_id): Path<Uuid>,
 ) -> Result<Json<Model>> {
-    Ok(Json(
-        <Message as Query<Model>>::find_by_id(&state.db, message_id).await?,
-    ))
+    Ok(Json(Message::find_by_id(&state.db, message_id).await?))
 }
 
 pub fn router() -> Router<AppState> {

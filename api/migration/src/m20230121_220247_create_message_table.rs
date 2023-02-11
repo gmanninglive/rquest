@@ -43,7 +43,12 @@ impl MigrationTrait for Migration {
                             .default(Expr::cust("now()")),
                     )
                     .col(ColumnDef::new(Message::PostedAt).timestamp_with_time_zone())
-                    .col(ColumnDef::new(Message::UpdatedAt).timestamp_with_time_zone())
+                    .col(
+                        ColumnDef::new(Message::UpdatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::cust("now()")),
+                    )
                     .to_owned(),
             )
             .await?;

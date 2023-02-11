@@ -14,8 +14,8 @@ pub struct Model {
     pub text: Option<String>,
     pub state: MessageState,
     pub created_at: DateTimeWithTimeZone,
-    pub posted_at: Option<DateTimeWithTimeZone>,
-    pub updated_at: Option<DateTimeWithTimeZone>,
+    pub posted_at: DateTimeWithTimeZone,
+    pub updated_at: DateTimeWithTimeZone,
     pub thread_question_id: Option<Uuid>,
     pub thread_answer_id: Option<Uuid>,
 }

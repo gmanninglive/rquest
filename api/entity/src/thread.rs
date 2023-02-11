@@ -12,7 +12,7 @@ pub struct Model {
     pub question_id: Option<Uuid>,
     pub answer_id: Option<Uuid>,
     pub created_at: DateTimeWithTimeZone,
-    pub updated_at: Option<DateTimeWithTimeZone>,
+    pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

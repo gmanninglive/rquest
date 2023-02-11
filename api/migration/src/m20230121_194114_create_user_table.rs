@@ -42,7 +42,12 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::cust("now()")),
                     )
-                    .col(ColumnDef::new(User::UpdatedAt).timestamp_with_time_zone())
+                    .col(
+                        ColumnDef::new(User::UpdatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::cust("now()")),
+                    )
                     .to_owned(),
             )
             .await?;

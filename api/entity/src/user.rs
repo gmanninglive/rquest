@@ -20,18 +20,26 @@ pub struct Model {
     #[sea_orm(column_type = "Text", nullable)]
     pub image: Option<String>,
     pub created_at: DateTimeWithTimeZone,
-    pub updated_at: Option<DateTimeWithTimeZone>,
+    pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(has_many = "super::message::Entity")]
     Message,
+    #[sea_orm(has_many = "super::session::Entity")]
+    Session,
 }
 
 impl Related<super::message::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Message.def()
+    }
+}
+
+impl Related<super::session::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Session.def()
     }
 }
 

@@ -11,6 +11,7 @@ pub struct Model {
     pub id: Uuid,
     pub question_id: Option<Uuid>,
     pub answer_id: Option<Uuid>,
+    pub session_id: Option<Uuid>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
@@ -33,6 +34,20 @@ pub enum Relation {
         on_delete = "SetNull"
     )]
     Message1,
+    #[sea_orm(
+        belongs_to = "super::session::Entity",
+        from = "Column::SessionId",
+        to = "super::session::Column::Id",
+        on_update = "NoAction",
+        on_delete = "SetNull"
+    )]
+    Session,
+}
+
+impl Related<super::session::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Session.def()
+    }
 }
 
 impl ActiveModelBehavior for ActiveModel {}

@@ -18,7 +18,7 @@ impl MigrationTrait for Migration {
             .create_foreign_key(
                 ForeignKey::create()
                     .name("fk-session-id")
-                    .from(Thread::Table, Thread::Id)
+                    .from(Thread::Table, Thread::SessionId)
                     .to(Session::Table, Session::Id)
                     .on_delete(ForeignKeyAction::SetNull)
                     .to_owned(),
@@ -42,7 +42,6 @@ impl MigrationTrait for Migration {
 #[derive(Iden)]
 enum Thread {
     Table,
-    Id,
     SessionId,
 }
 

@@ -1,5 +1,7 @@
 use crate::http::extractor::AuthUser;
 use crate::{http::Result, AppState};
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use axum::{
     extract::{Path, State},
     routing::{delete, get, patch, post},
@@ -11,8 +13,8 @@ use uuid::Uuid;
 async fn create_user(
     State(state): State<AppState>,
     Json(req): Json<CreateParams>,
-) -> Result<Json<Model>> {
-    Ok(Json(User::create(&state.db, req).await?))
+) -> Result<impl IntoResponse> {
+    Ok((StatusCode::CREATED, Json(User::create(&state.db, req).await?)))
 }
 
 async fn find_by_id(

@@ -4,9 +4,7 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use entity::{
-    message, message::Entity as Message, session, thread, thread::Entity as Thread
-};
+use entity::{message, message::Entity as Message, session, thread, thread::Entity as Thread};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -14,9 +12,7 @@ async fn question(
     State(state): State<AppState>,
     Path(thread_id): Path<Uuid>,
 ) -> Result<Json<message::Model>> {
-    Ok(Json(
-        Message::find_as_question(&state.db, thread_id).await?
-    ))
+    Ok(Json(Message::find_as_question(&state.db, thread_id).await?))
 }
 
 async fn one(

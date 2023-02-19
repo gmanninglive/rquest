@@ -1,9 +1,8 @@
-use async_trait::async_trait;
 use rquest_core::http::*;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use sqlx::types::chrono::{DateTime, Utc};
-use crate::thread;
+use sqlx::PgPool;
 
 #[derive(
     Clone,
@@ -55,21 +54,9 @@ impl Related<super::user::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-impl Model {
-    pub async fn threads(&self, db: &DbConn) -> Result<Vec<thread::Model>> {
-        Ok(self.find_related(thread::Entity).all(db).await?)
-    }
-}
-
-#[async_trait]
-trait Query {
-    async fn find_by_id(db: &DbConn, id: Uuid) -> Result<Model>;
-}
-#[async_trait]
-impl Query for Entity {
-    async fn find_by_id(db: &DbConn, id: Uuid) -> Result<Model> {
-        <Entity as sea_orm::EntityTrait>::find_by_id(id)
-            .one_or_nf(db, "session")
-            .await
+impl Entity {
+    pub async fn find_by_id(db: &PgPool, session_id: Uuid) -> Result<Model> {
+        Ok(sqlx::query_as!(Model, 
+                    r#"select * from session where id = $1"#, session_id).fetch_one(db).await?)
     }
 }

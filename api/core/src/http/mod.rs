@@ -7,6 +7,7 @@ use axum::response::IntoResponse;
 use axum::Json;
 use sea_orm::{DbErr, RuntimeErr};
 use sqlx::error::DatabaseError;
+use sqlx::Error as SqlxError;
 use std::borrow::Cow;
 use std::collections::HashMap;
 
@@ -116,6 +117,7 @@ impl Error {
             Self::Forbidden => StatusCode::FORBIDDEN,
             Self::NotFound { .. } => StatusCode::NOT_FOUND,
             Self::UnprocessableEntity { .. } => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::Sqlx(sqlx::Error::RowNotFound) => StatusCode::NOT_FOUND,
             Self::Sqlx(_) | Self::Anyhow(_) | Self::Seaorm(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -162,17 +164,16 @@ impl IntoResponse for Error {
                 struct Errors {
                     errors: String,
                 }
-
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(Errors {
-                        errors: e.to_string(),
-                    }),
-                )
-                    .into_response();
-                // TODO: we probably want to use `tracing` instead
-                // so that this gets linked to the HTTP request by `TraceLayer`.
-                //log::error!("SQLx error: {:?}", e);
+                return match e {
+                    SqlxError::RowNotFound => (StatusCode::NOT_FOUND).into_response(),
+                    _ => (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(Errors {
+                            errors: e.to_string(),
+                        }),
+                    )
+                        .into_response(),
+                };
             }
 
             Self::Anyhow(ref _e) => {
@@ -212,14 +213,6 @@ impl IntoResponse for Error {
 ///     .await
 ///     .on_constraint("user_username_key", |_| Error::unprocessable_entity([("username", "already taken")]))?;
 /// ```
-///
-/// Something like this would ideally live in a `sqlx-axum` crate if it made sense to author one,
-/// however its definition is tied pretty intimately to the `Error` type, which is itself
-/// tied directly to application semantics.
-///
-/// To actually make this work in a generic context would make it quite a bit more complex,
-/// as you'd need an intermediate error type to represent either a mapped or an unmapped error,
-/// and even then it's not clear how to handle `?` in the unmapped case without more boilerplate.
 pub trait ResultExt<T> {
     /// If `self` contains a SQLx database constraint error with the given name,
     /// transform the error.
@@ -247,28 +240,5 @@ where
             }
             e => e,
         })
-    }
-}
-
-use async_trait::async_trait;
-use sea_orm::{DbConn, EntityTrait, Select};
-#[async_trait]
-pub trait Helpers<S>
-where
-    S: EntityTrait,
-{
-    /// Fetches one or returns a NotFound error
-    async fn one_or_nf(self, db: &DbConn, entity_name: &'static str) -> Result<S::Model>;
-}
-
-#[async_trait]
-impl<S> Helpers<S> for Select<S>
-where
-    S: EntityTrait,
-{
-    async fn one_or_nf(self, db: &DbConn, entity_name: &'static str) -> Result<S::Model> {
-        Self::one(self, db)
-            .await?
-            .ok_or_else(|| Error::NotFound(entity_name))
     }
 }

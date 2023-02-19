@@ -70,7 +70,6 @@ impl Related<super::message::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-
 #[derive(Deserialize)]
 pub struct UpdateParams {
     answer_id: Uuid,
@@ -159,5 +158,3 @@ impl Entity {
         Ok(thread.fetch_one(db).await?)
     }
 }
-
-

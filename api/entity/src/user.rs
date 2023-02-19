@@ -1,5 +1,5 @@
 use rquest_core::auth;
-use rquest_core::http::{Error, Result};
+use rquest_core::http::*;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
@@ -103,7 +103,13 @@ impl Entity {
             auth::hash_password(req.password).await?
         )
         .fetch_one(db)
-        .await?;
+        .await
+        .on_constraint("user_username_key", |_| {
+            Error::unprocessable_entity([("username", "username taken")])
+        })
+        .on_constraint("user_email_key", |_| {
+            Error::unprocessable_entity([("email", "email taken")])
+        })?;
 
         Ok(user)
     }
@@ -132,13 +138,13 @@ impl Entity {
             user_id
         )
         .fetch_one(db)
-        .await?;
-        //.on_constraint("user_username_key", |_| {
-        //Error::unprocessable_entity([("username", "username taken")])
-        //})
-        //.on_constraint("user_email_key", |_| {
-        //Error::unprocessable_entity([("email", "email taken")])
-        //})?;
+        .await
+        .on_constraint("user_username_key", |_| {
+            Error::unprocessable_entity([("username", "username taken")])
+        })
+        .on_constraint("user_email_key", |_| {
+            Error::unprocessable_entity([("email", "email taken")])
+        })?;
 
         Ok(user)
     }

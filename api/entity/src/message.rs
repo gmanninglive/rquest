@@ -137,5 +137,3 @@ impl Entity {
         Ok(message.fetch_one(db).await?)
     }
 }
-
-

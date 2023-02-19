@@ -5,10 +5,10 @@ use axum::{
     Router,
 };
 use rquest::{routes, AppState};
+use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
-use sqlx::postgres::PgPoolOptions;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {

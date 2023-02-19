@@ -1,13 +1,9 @@
-use async_trait::async_trait;
 use rquest_core::http::*;
-use sea_orm::ActiveValue;
-use sea_orm::{entity::prelude::*, QuerySelect};
+use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use sqlx::types::chrono::{DateTime, Utc};
-use sqlx::{Pool, Postgres};
+use sqlx::PgPool;
 use uuid::Uuid;
-
-use crate::thread;
 
 #[derive(
     Clone,
@@ -87,39 +83,6 @@ pub enum MessageState {
     Posted = 1,
 }
 
-/// Private methods
-impl Entity {
-    fn find_by_id(id: Uuid) -> Select<Entity> {
-        Self::find().filter(Column::Id.eq(id))
-    }
-    pub fn question(id: Uuid) -> Select<Entity> {
-        Self::find()
-            .join_rev(
-                sea_orm::JoinType::RightJoin,
-                thread::Relation::Question.def(),
-            )
-            .filter(thread::Column::Id.eq(id))
-    }
-}
-
-/// Public interface for querying messages
-#[async_trait]
-pub trait Query<T> {
-    async fn find_by_id(db: &DbConn, id: Uuid) -> Result<T>;
-}
-
-#[async_trait]
-impl Query<Model> for Entity {
-    async fn find_by_id(db: &DbConn, message_id: Uuid) -> Result<Model> {
-        let message = Entity::find_by_id(message_id)
-            .one(db)
-            .await?
-            .ok_or(Error::NotFound("message"))?;
-
-        Ok(message)
-    }
-}
-
 #[derive(Deserialize)]
 pub struct CreateParams {
     pub user_id: Uuid,
@@ -129,45 +92,34 @@ pub struct CreateParams {
     pub publish: Option<bool>,
 }
 
-/// Public interface for updating messages
-#[async_trait]
-pub trait Mutation<T> {
-    //async fn create(db: &DbConn, req: CreateParams) -> Result<T>;
-    async fn create(db: Pool<Postgres>, req: CreateParams) -> Result<T>;
-    //async fn update(db: &DbConn, user_id: Uuid, req: UpdateParams) -> Result<T>;
-    //async fn delete(db: &DbConn, user_id: Uuid) -> Result<()>;
-}
+impl Entity {
+    pub async fn find_by_id(db: &PgPool, message_id: Uuid) -> Result<Model> {
+        let message = sqlx::query_as!(
+            Model,
+            r#"
+                            select * from message
+                            where message.id = $1"#,
+            message_id
+        )
+        .fetch_one(db)
+        .await?;
 
-#[async_trait]
-impl Mutation<Model> for Entity {
-    //async fn create(db: &DbConn, req: CreateParams) -> Result<Model> {
-        //let message = ActiveModel {
-            //user_id: ActiveValue::Set(Some(req.user_id)),
-            //text: ActiveValue::Set(Some(req.text)),
-            //state: match req.publish {
-                //Some(publish) => {
-                    //if publish == true {
-                        //ActiveValue::Set(1)
-                    //} else {
-                        //ActiveValue::NotSet
-                    //}
-                //}
-                //_ => ActiveValue::NotSet,
-            //},
-            //thread_answer_id: match req.as_answer_thread_id {
-                //Some(thread_id) => ActiveValue::Set(Some(thread_id)),
-                //None => ActiveValue::NotSet,
-            //},
-            //thread_question_id: match req.as_question_thread_id {
-                //Some(thread_id) => ActiveValue::Set(Some(thread_id)),
-                //None => ActiveValue::NotSet,
-            //},
-            //..Default::default()
-        //};
-
-        //Ok(message.insert(db).await?)
-    //}
-    async fn create(db: Pool<Postgres>, req: CreateParams) -> Result<Model> {
+        Ok(message)
+    }
+    pub async fn find_as_question(db: &PgPool, thread_id: Uuid) -> Result<Model> {
+        let question = sqlx::query_as!(
+            Model,
+            r#"select q.* as "question: Model"
+                        from thread
+                        left join message q on thread.question_id = q.id
+                        where thread.id = $1"#,
+            thread_id
+        )
+        .fetch_one(db)
+        .await?;
+        Ok(question)
+    }
+    pub async fn create(db: &PgPool, req: CreateParams) -> Result<Model> {
         let message = sqlx::query_as!(
             Model,
             r#" insert into 
@@ -182,6 +134,8 @@ impl Mutation<Model> for Entity {
             req.as_question_thread_id
         );
 
-        Ok(message.fetch_one(&db).await?)
+        Ok(message.fetch_one(db).await?)
     }
 }
+
+

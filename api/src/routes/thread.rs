@@ -4,56 +4,27 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use entity::{message, session, thread, thread::CustomSelectors, thread::Entity as Thread};
-use rquest_core::http::Helpers;
-use sea_orm::sea_query::{Alias, Expr};
-use sea_orm::{entity::prelude::*, ConnectionTrait};
-use sea_orm::{EntityTrait, QueryFilter, RelationTrait};
-use sea_orm::{QuerySelect, SelectTwo, Set};
+use entity::{
+    message, message::Entity as Message, session, thread, thread::Entity as Thread
+};
 use serde::Serialize;
-use sqlx::types::{
-    chrono::{DateTime, Utc},
-    uuid::Uuid,
-};
-use sqlx::{
-    postgres::{PgPoolOptions, PgRow},
-    PgPool,
-};
-use std::collections::HashMap;
+use uuid::Uuid;
 
 async fn question(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-) -> Result<Json<Option<message::Model>>> {
-    Ok(Json(message::Entity::question(id).one(&state.db).await?))
+    Path(thread_id): Path<Uuid>,
+) -> Result<Json<message::Model>> {
+    Ok(Json(
+        Message::find_as_question(&state.db, thread_id).await?
+    ))
 }
 
 async fn one(
     State(state): State<AppState>,
     Path(thread_id): Path<Uuid>,
 ) -> Result<Json<thread::Model>> {
-    Ok(Json(
-        Thread::find_by_id(thread_id)
-            .one_or_nf(&state.db, "thread")
-            .await?,
-    ))
+    Ok(Json(Thread::find_by_id(&state.db, thread_id).await?))
 }
-
-//async fn detail(
-//State(state): State<AppState>,
-//Path(thread_id): Path<Uuid>,
-//) -> Result<Json<ThreadWithRelated>> {
-//let (thread, question) = Thread::find_by_id(thread_id)
-//.with_question()
-//.one(&state.db)
-//.await?
-//.ok_or_else(|| Error::NotFound("thread"))?;
-
-//Ok(Json(ThreadWithRelated {
-//id: thread.id,
-//question,
-//}))
-//}
 
 #[derive(Clone, Serialize, sqlx::FromRow)]
 struct ThreadWithRelated {
@@ -67,15 +38,6 @@ async fn related(
     State(state): State<AppState>,
     Path(thread_id): Path<Uuid>,
 ) -> Result<Json<ThreadWithRelated>> {
-    let db_connection_str = "postgres://postgres:postgres@127.0.0.1:5432/rq_dev".to_string();
-
-    // setup connection pool
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&db_connection_str)
-        .await
-        .expect("can't connect to database");
-
     let query = sqlx::query_as!(
         ThreadWithRelated,
         r#"
@@ -92,14 +54,14 @@ async fn related(
             "#,
         thread_id
     )
-    .fetch_one(&pool)
+    .fetch_one(&state.db)
     .await?;
 
     Ok(Json(query))
 }
 
 async fn index(State(state): State<AppState>) -> Result<Json<Vec<thread::Model>>> {
-    Ok(Json(Thread::find().all(&state.db).await?))
+    Ok(Json(Thread::find_all(&state.db).await?))
 }
 
 pub fn router() -> Router<AppState> {

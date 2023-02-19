@@ -1,10 +1,9 @@
 use async_trait::async_trait;
 use rquest_core::http::*;
-use sea_orm::{entity::prelude::*, SelectTwoMany};
+use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use sqlx::types::chrono::{DateTime, Utc};
-
-use crate::{message, thread};
+use crate::thread;
 
 #[derive(
     Clone,
@@ -55,12 +54,6 @@ impl Related<super::user::Entity> for Entity {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
-
-impl Entity {
-    fn with_threads() -> SelectTwoMany<Entity, thread::Entity> {
-        Self::find().find_with_related(thread::Entity)
-    }
-}
 
 impl Model {
     pub async fn threads(&self, db: &DbConn) -> Result<Vec<thread::Model>> {

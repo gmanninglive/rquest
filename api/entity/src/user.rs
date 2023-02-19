@@ -1,9 +1,8 @@
-use async_trait::async_trait;
 use rquest_core::auth;
-use rquest_core::http::{Helpers, Result};
+use rquest_core::http::{Error, Result};
 use sea_orm::entity::prelude::*;
-use sea_orm::entity::*;
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "user")]
@@ -19,8 +18,8 @@ pub struct Model {
     pub password_hash: String,
     #[sea_orm(column_type = "Text", nullable)]
     pub image: Option<String>,
-    pub created_at: DateTimeWithTimeZone,
-    pub updated_at: DateTimeWithTimeZone,
+    pub created_at: DateTimeUtc,
+    pub updated_at: DateTimeUtc,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -45,114 +44,115 @@ impl Related<super::session::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-/// Private methods
-impl Entity {
-    fn find_by_id(id: Uuid) -> Select<Entity> {
-        Self::find().filter(Column::Id.eq(id))
-    }
-    fn find_by_email(email: String) -> Select<Entity> {
-        Self::find().filter(Column::Email.eq(email))
-    }
-}
-
-/// Public interface for querying users
-#[async_trait]
-pub trait Query<T> {
-    async fn find_by_id(db: &DbConn, id: Uuid) -> Result<T>;
-    async fn find_by_email(db: &DbConn, email: String) -> Result<T>;
-    async fn find_all(db: &DbConn) -> Result<Vec<T>>;
-}
-
-#[async_trait]
-impl Query<Model> for Entity {
-    async fn find_by_id(db: &DbConn, user_id: Uuid) -> Result<Model> {
-        Entity::find_by_id(user_id).one_or_nf(db, "user").await
-    }
-    async fn find_by_email(db: &DbConn, email: String) -> Result<Model> {
-        Entity::find_by_email(email).one_or_nf(db, "user").await
-    }
-    async fn find_all(db: &DbConn) -> Result<Vec<Model>> {
-        Ok(Entity::find().all(db).await?)
-    }
-}
-
-#[derive(Deserialize)]
+#[derive(serde::Deserialize, Default, PartialEq, Eq)]
+#[serde(default)] // fill in any missing fields with `..UpdateUser::default()`
 pub struct UpdateParams {
-    username: Option<String>,
     email: Option<String>,
     image: Option<String>,
+    password: Option<String>,
+    username: Option<String>,
 }
 
 #[derive(Deserialize)]
 pub struct CreateParams {
     username: String,
+    image: Option<String>,
     email: String,
     password: String,
 }
 
-/// Public interface for updating users
-#[async_trait]
-pub trait Mutation<T> {
-    async fn create(db: &DbConn, req: CreateParams) -> Result<T>;
-    async fn update(db: &DbConn, user_id: Uuid, req: UpdateParams) -> Result<T>;
-    async fn update_password(db: &DbConn, user_id: Uuid, password: String) -> Result<T>;
-    async fn delete(db: &DbConn, user_id: Uuid) -> Result<()>;
-}
-
-#[async_trait]
-impl Mutation<Model> for Entity {
-    async fn create(db: &DbConn, req: CreateParams) -> Result<Model> {
-        let user = ActiveModel {
-            username: ActiveValue::Set(req.username),
-            email: ActiveValue::Set(req.email),
-            password_hash: ActiveValue::Set(auth::hash_password(req.password).await?),
-            ..Default::default()
-        }
-        .insert(db)
+impl Entity {
+    pub async fn find_by_id(db: &PgPool, user_id: Uuid) -> Result<Model> {
+        Ok(sqlx::query_as!(
+            Model,
+            r#"
+                select * from "user"
+                where id = $1"#,
+            user_id
+        )
+        .fetch_one(db)
+        .await?)
+    }
+    pub async fn find_by_email(db: &PgPool, email: String) -> Result<Model> {
+        Ok(sqlx::query_as!(
+            Model,
+            r#"
+                select * from "user"
+                where email = $1"#,
+            email
+        )
+        .fetch_one(db)
+        .await?)
+    }
+    pub async fn find_all(db: &PgPool) -> Result<Vec<Model>> {
+        Ok(sqlx::query_as!(Model, r#"select * from "user""#)
+            .fetch_all(db)
+            .await?)
+    }
+    pub async fn create(db: &PgPool, req: CreateParams) -> Result<Model> {
+        let user = sqlx::query_as!(
+            Model,
+            r#"
+            insert into "user" (username, email, image, password_hash)
+            values ($1, $2, $3, $4)
+            returning * 
+        "#,
+            req.username,
+            req.email,
+            req.image,
+            auth::hash_password(req.password).await?
+        )
+        .fetch_one(db)
         .await?;
 
         Ok(user)
     }
-    async fn update(db: &DbConn, user_id: Uuid, req: UpdateParams) -> Result<Model> {
-        let mut user: ActiveModel = <Entity as Query<Model>>::find_by_id(db, user_id)
-            .await?
-            .into();
-
-        match req.username {
-            Some(username) => user.username = Set(username),
-            None => (),
+    pub async fn update(db: &PgPool, user_id: Uuid, req: UpdateParams) -> Result<Model> {
+        let password_hash = if let Some(password) = req.password {
+            Some(auth::hash_password(password).await?)
+        } else {
+            None
         };
 
-        match req.email {
-            Some(email) => user.email = Set(email),
-            None => (),
-        };
-        match req.image {
-            Some(image) => user.image = Set(Some(image)),
-            None => (),
-        };
+        let user = sqlx::query_as!(
+            Model,
+            r#"
+            update "user"
+            set email = coalesce($1, "user".email),
+                username = coalesce($2, "user".username),
+                password_hash = coalesce($3, "user".password_hash),
+                image = coalesce($4, "user".image)
+            where id = $5
+            returning * 
+        "#,
+            req.email,
+            req.username,
+            password_hash,
+            req.image,
+            user_id
+        )
+        .fetch_one(db)
+        .await?;
+        //.on_constraint("user_username_key", |_| {
+        //Error::unprocessable_entity([("username", "username taken")])
+        //})
+        //.on_constraint("user_email_key", |_| {
+        //Error::unprocessable_entity([("email", "email taken")])
+        //})?;
 
-        let res = user.update(db).await?;
-
-        Ok(res)
+        Ok(user)
     }
-    async fn update_password(db: &DbConn, user_id: Uuid, password: String) -> Result<Model> {
-        let mut user: ActiveModel = <Entity as Query<Model>>::find_by_id(db, user_id)
-            .await?
-            .into();
+    pub async fn delete(db: &PgPool, user_id: Uuid) -> Result<()> {
+        sqlx::query!(
+            r#"
+                        delete from "user"
+                        where id = $1
+                        "#,
+            user_id
+        )
+        .execute(db)
+        .await?;
 
-        user.password_hash = Set(auth::hash_password(password).await?);
-
-        let res = user.update(db).await?;
-
-        Ok(res)
-    }
-    async fn delete(db: &DbConn, user_id: Uuid) -> Result<()> {
-        let user: ActiveModel = <Entity as Query<Model>>::find_by_id(db, user_id)
-            .await?
-            .into();
-
-        user.delete(db).await?;
         Ok(())
     }
 }

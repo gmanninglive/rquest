@@ -1,6 +1,5 @@
 pub mod auth;
 pub mod message;
-pub mod test;
 pub mod thread;
 pub mod user;
 

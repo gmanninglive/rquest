@@ -1,10 +1,8 @@
-use async_trait::async_trait;
 use rquest_core::http::*;
 use sea_orm::entity::prelude::*;
-use sea_orm::sea_query::{Alias, Expr};
-use sea_orm::{QuerySelect, SelectTwo, Set};
 use serde::{Deserialize, Serialize};
 use sqlx::types::chrono::{DateTime, Utc};
+use sqlx::PgPool;
 
 use crate::message;
 
@@ -72,66 +70,72 @@ impl Related<super::message::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-/// Private methods
-impl Entity {
-    fn find_as_answer(id: Uuid) -> Select<Entity> {
-        Self::find().filter(Column::AnswerId.eq(id))
-    }
-}
-
-pub trait CustomSelectors<E>
-where
-    E: EntityTrait,
-{
-    fn with_question(self) -> SelectTwo<Entity, message::Entity>;
-    //fn question(self) ->  Select<message::Entity>;
-}
-
-impl CustomSelectors<Entity> for Select<Entity> {
-    fn with_question(self) -> SelectTwo<Entity, message::Entity> {
-        self.join(sea_orm::JoinType::RightJoin, Relation::Question.def())
-            .select_also(message::Entity)
-    }
-}
-
-/// Public interface for querying threads
-#[async_trait]
-pub trait Query<T> {
-    async fn find_by_id(db: &DbConn, id: Uuid) -> Result<T>;
-    async fn find_as_answer(dn: &DbConn, id: Uuid) -> Result<T>;
-}
-
-#[async_trait]
-impl Query<Model> for Entity {
-    async fn find_by_id(db: &DbConn, thread_id: Uuid) -> Result<Model> {
-        //let t = <Entity as sea_orm::EntityTrait>::find_by_id(thread_id).one_or_nf(db, "thread").await?;
-        <Entity as sea_orm::EntityTrait>::find_by_id(thread_id)
-            .one_or_nf(db, "thread")
-            .await
-    }
-    async fn find_as_answer(db: &DbConn, as_answer_id: Uuid) -> Result<Model> {
-        Entity::find_as_answer(as_answer_id)
-            .one_or_nf(db, "thread")
-            .await
-    }
-}
 
 #[derive(Deserialize)]
 pub struct UpdateParams {
     answer_id: Uuid,
 }
 
-/// Public interface for updating threads
-#[async_trait]
-pub trait Mutation<T> {
-    /// create a new thread, new threads can only be created with a new question message.
-    async fn create(db: &DbConn, question_id: Uuid) -> Result<T>;
-    async fn update(db: &DbConn, thread_id: Uuid, req: UpdateParams) -> Result<T>;
+#[derive(Deserialize)]
+pub struct CreateQuestionParams {
+    session_id: Uuid,
+    question: message::CreateParams,
 }
 
-#[async_trait]
-impl Mutation<Model> for Entity {
-    async fn create(db: &DbConn, question_id: Uuid) -> Result<Model> {
+impl Entity {
+    pub async fn find_by_id(db: &PgPool, thread_id: Uuid) -> Result<Model> {
+        Ok(sqlx::query_as!(
+            Model,
+            r#"select * from thread where thread.id = $1"#,
+            thread_id
+        )
+        .fetch_one(db)
+        .await?)
+    }
+    pub async fn find_as_answer(db: &PgPool, as_answer_id: Uuid) -> Result<Model> {
+        Ok(sqlx::query_as!(
+            Model,
+            r#"select * from thread where thread.answer_id = $1"#,
+            as_answer_id
+        )
+        .fetch_one(db)
+        .await?)
+    }
+    pub async fn find_all(db: &PgPool) -> Result<Vec<Model>> {
+        let query = sqlx::query_as!(Model, r#"select * from thread"#);
+
+        Ok(query.fetch_all(db).await?)
+    }
+    pub async fn create_question(db: &PgPool, req: CreateQuestionParams) -> Result<Model> {
+        let question = sqlx::query_as!(
+            Model,
+            r#"
+                    with created_question as (
+                        insert into message (text, state, user_id)
+                        values ($1, $2, $3)
+                        returning id
+                    ),
+                    created_thread as (
+                        insert into thread (session_id, question_id)
+                        values ($4, (select id from created_question))
+                        returning *
+                    ), updated_question as (
+                        update message 
+                        set thread_question_id = (select id from created_thread)
+                        where message.id = (select id from created_question)
+                    )
+                    select * from created_thread
+                    "#,
+            req.question.text,
+            Into::<i16>::into(req.question.publish.unwrap_or(false)),
+            req.question.user_id,
+            req.session_id
+        )
+        .fetch_one(db)
+        .await?;
+        Ok(question)
+    }
+    pub async fn create(db: &DbConn, question_id: Uuid) -> Result<Model> {
         let thread = ActiveModel {
             question_id: sea_orm::ActiveValue::Set(Some(question_id)),
             ..Default::default()
@@ -141,13 +145,19 @@ impl Mutation<Model> for Entity {
 
         Ok(thread)
     }
-    async fn update(db: &DbConn, thread_id: Uuid, req: UpdateParams) -> Result<Model> {
-        let mut thread: ActiveModel = <Entity as Query<Model>>::find_by_id(db, thread_id)
-            .await?
-            .into();
-
-        thread.answer_id = Set(Some(req.answer_id));
-
-        Ok(thread.update(db).await?)
+    pub async fn update(db: &PgPool, thread_id: Uuid, req: UpdateParams) -> Result<Model> {
+        let thread = sqlx::query_as!(
+            Model,
+            r#"update thread
+                            set answer_id = $2
+                        where thread.id = $1
+                        returning *
+                    "#,
+            thread_id,
+            req.answer_id
+        );
+        Ok(thread.fetch_one(db).await?)
     }
 }
+
+

@@ -5,10 +5,10 @@ use axum::{
     Router,
 };
 use rquest::{routes, AppState};
-use sea_orm::{Database, DatabaseConnection};
 use std::net::SocketAddr;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
+use sqlx::postgres::PgPoolOptions;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -17,7 +17,11 @@ async fn main() -> Result<(), anyhow::Error> {
 
     dotenvy::dotenv().unwrap();
 
-    let pool: DatabaseConnection = Database::connect(&db_connection_str).await?;
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&db_connection_str)
+        .await
+        .expect("can't connect to database");
 
     let app = Router::new()
         .merge(routes::api_router())

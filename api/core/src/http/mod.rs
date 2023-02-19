@@ -157,7 +157,19 @@ impl IntoResponse for Error {
                     .into_response();
             }
 
-            Self::Sqlx(ref _e) => {
+            Self::Sqlx(ref e) => {
+                #[derive(serde::Serialize)]
+                struct Errors {
+                    errors: String,
+                }
+
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(Errors {
+                        errors: e.to_string(),
+                    }),
+                )
+                    .into_response();
                 // TODO: we probably want to use `tracing` instead
                 // so that this gets linked to the HTTP request by `TraceLayer`.
                 //log::error!("SQLx error: {:?}", e);

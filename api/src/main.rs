@@ -1,3 +1,4 @@
+#![feature(async_closure)]
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -6,6 +7,8 @@ use axum::{
 use rquest::{routes, AppState};
 use sea_orm::{Database, DatabaseConnection};
 use std::net::SocketAddr;
+use tower::ServiceBuilder;
+use tower_http::trace::TraceLayer;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -18,6 +21,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let app = Router::new()
         .merge(routes::api_router())
+        .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
         .with_state(AppState {
             db: pool,
             hmac_key: std::env::var("HMAC_KEY").unwrap(),

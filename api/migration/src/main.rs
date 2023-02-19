@@ -1,5 +1,5 @@
 use entity::{message, session, thread, user};
-use migration::sea_orm::prelude::DateTimeWithTimeZone;
+use migration::sea_orm::prelude::{DateTimeUtc, DateTimeWithTimeZone};
 use migration::sea_orm::ActiveModelTrait;
 use rquest_core::auth;
 use sea_orm::entity::ActiveValue::Set;
@@ -20,7 +20,7 @@ async fn main() {
 
         let db = Database::connect(db_connection_str).await.unwrap();
 
-        seed(&db).await;
+        seed(&db).await.unwrap();
     } else {
         cli::run_cli(migration::Migrator).await;
     }
@@ -30,12 +30,12 @@ async fn seed(db: &DbConn) -> Result<(), DbErr> {
     let password = auth::hash_password("password".to_owned()).await.unwrap();
     let mut users: Vec<user::ActiveModel> = vec![];
     for n in 1..50 {
-    users.push(user::ActiveModel {
-    username: Set(format!("user-{}", n)),
-    email: Set(format!("user-{}@example.com", n)),
-    password_hash: Set(password.clone()),
-    ..Default::default()
-    })
+        users.push(user::ActiveModel {
+            username: Set(format!("user-{}", n)),
+            email: Set(format!("user-{}@example.com", n)),
+            password_hash: Set(password.clone()),
+            ..Default::default()
+        })
     }
 
     user::Entity::insert_many(users).exec(db).await?;
@@ -45,7 +45,7 @@ async fn seed(db: &DbConn) -> Result<(), DbErr> {
     let session = session::ActiveModel {
         host_id: Set(Some(users[0].id)),
         title: Set(Some("First Q&A!".to_owned())),
-        scheduled_for: Set(DateTimeWithTimeZone::default()),
+        scheduled_for: Set(DateTimeUtc::default()),
         ..Default::default()
     }
     .insert(db)
@@ -55,7 +55,7 @@ async fn seed(db: &DbConn) -> Result<(), DbErr> {
         let message = message::ActiveModel {
             text: Set(Some("I have a question".to_owned())),
             user_id: Set(Some(user.id)),
-            state: Set(message::MessageState::Posted),
+            state: Set(1),
             ..Default::default()
         }
         .insert(db)

@@ -20,16 +20,16 @@ services:
     ports:
       - "3030:3030"
     volumes:
-      - ./api/:/app/
+      - .:/app
     command: "cargo run" 
-  kafka:
-    build:
-      dockerfile: ./kafka/Dockerfile
-    command: /bin/start_kafka.sh
-    ports:
-      - "9092:9092"
-    volumes:
-      - ./kafka/:/app/
+  #kafka:
+    #build:
+      #dockerfile: ./kafka/Dockerfile
+    #command: /bin/start_kafka.sh
+    #ports:
+      #- "9092:9092"
+    #volumes:
+      #- ./kafka/:/app/
   db:
     image: postgres:14.1-alpine
     restart: always

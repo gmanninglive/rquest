@@ -9,6 +9,7 @@ members = [".", "core", "entity", "migration"]
 [workspace.dependencies]
 serde = { version = "1.0.152", features = ["derive"] }
 uuid = { version = "1.2.2", features = ["v1", "serde"] }
+sqlx = { path = "../sqlx", features = ["postgres","chrono", "uuid", "runtime-tokio-native-tls"] }
 
 [dependencies]
 entity = { path = "./entity" }
@@ -21,7 +22,7 @@ sea-orm = { version = "0.10.7", features = ["runtime-tokio-native-tls", "sqlx-po
 serde = { workspace = true }
 uuid = { workspace = true }
 serde_json = "1.0.91"
-sqlx = { version = "0.6.2", features = ["postgres", "uuid", "runtime-tokio-native-tls", "time"] }
+sqlx = { workspace = true } 
 thiserror = "1.0.38"
 time = "0.2"
 tokio = { version = "1.24.1", features = ["full"] }
@@ -32,3 +33,5 @@ async-trait = "0.1.62"
 argon2 = "0.4.1"
 rand = "0.8.5"
 dotenvy = "0.15.6"
+tower = "0.4.13"
+tower-http = { version = "0.3.5", features = ["trace"] }

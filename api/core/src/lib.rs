@@ -1,6 +1,8 @@
 pub mod auth;
 pub mod http;
 
+use std::collections::HashMap;
+
 pub use sea_orm;
 
 #[derive(Clone)]

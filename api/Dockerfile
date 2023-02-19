@@ -1,6 +1,6 @@
-FROM rust:1.66.1 
+FROM rustlang/rust:nightly
 
-WORKDIR /app
+WORKDIR /app/api
 
 EXPOSE 3030
 

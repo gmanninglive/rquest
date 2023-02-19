@@ -23,6 +23,16 @@ impl MigrationTrait for Migration {
                     .on_delete(ForeignKeyAction::SetNull)
                     .to_owned(),
             )
+            .await?;
+
+        manager
+            .create_index(
+                IndexCreateStatement::new()
+                    .name("index_thread_on_session_id")
+                    .table(Thread::Table)
+                    .col(Thread::SessionId)
+                    .to_owned(),
+            )
             .await
     }
 

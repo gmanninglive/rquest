@@ -1,3 +1,4 @@
+#![feature(async_closure)]
 pub mod routes;
 pub mod types;
 

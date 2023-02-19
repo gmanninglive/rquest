@@ -1,10 +1,25 @@
 use async_trait::async_trait;
 use rquest_core::http::*;
-use sea_orm::entity::prelude::*;
 use sea_orm::ActiveValue;
+use sea_orm::{entity::prelude::*, QuerySelect};
 use serde::{Deserialize, Serialize};
+use sqlx::types::chrono::{DateTime, Utc};
+use sqlx::{Pool, Postgres};
+use uuid::Uuid;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
+use crate::thread;
+
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    DeriveEntityModel,
+    Eq,
+    Serialize,
+    Deserialize,
+    sqlx::FromRow,
+    sqlx::Type,
+)]
 #[sea_orm(table_name = "message")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
@@ -12,10 +27,10 @@ pub struct Model {
     pub user_id: Option<Uuid>,
     #[sea_orm(column_type = "Text", nullable)]
     pub text: Option<String>,
-    pub state: MessageState,
-    pub created_at: DateTimeWithTimeZone,
-    pub posted_at: DateTimeWithTimeZone,
-    pub updated_at: DateTimeWithTimeZone,
+    pub state: i16,
+    pub created_at: DateTime<Utc>,
+    pub posted_at: Option<DateTime<Utc>>,
+    pub updated_at: DateTime<Utc>,
     pub thread_question_id: Option<Uuid>,
     pub thread_answer_id: Option<Uuid>,
 }
@@ -29,7 +44,7 @@ pub enum Relation {
         on_update = "NoAction",
         on_delete = "SetNull"
     )]
-    Thread2,
+    Answer,
     #[sea_orm(
         belongs_to = "super::thread::Entity",
         from = "Column::ThreadQuestionId",
@@ -37,7 +52,7 @@ pub enum Relation {
         on_update = "NoAction",
         on_delete = "SetNull"
     )]
-    Thread1,
+    Question,
     #[sea_orm(
         belongs_to = "super::user::Entity",
         from = "Column::UserId",
@@ -56,13 +71,15 @@ impl Related<super::user::Entity> for Entity {
 
 impl Related<super::thread::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Thread1.def()
+        Relation::Question.def()
     }
 }
 
 impl ActiveModelBehavior for ActiveModel {}
 
-#[derive(Debug, Clone, Eq, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Eq, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize, sqlx::Type,
+)]
 #[sea_orm(rs_type = "i16", db_type = "Integer")]
 pub enum MessageState {
     Deleted = -1,
@@ -74,6 +91,14 @@ pub enum MessageState {
 impl Entity {
     fn find_by_id(id: Uuid) -> Select<Entity> {
         Self::find().filter(Column::Id.eq(id))
+    }
+    pub fn question(id: Uuid) -> Select<Entity> {
+        Self::find()
+            .join_rev(
+                sea_orm::JoinType::RightJoin,
+                thread::Relation::Question.def(),
+            )
+            .filter(thread::Column::Id.eq(id))
     }
 }
 
@@ -107,38 +132,56 @@ pub struct CreateParams {
 /// Public interface for updating messages
 #[async_trait]
 pub trait Mutation<T> {
-    async fn create(db: &DbConn, req: CreateParams) -> Result<T>;
+    //async fn create(db: &DbConn, req: CreateParams) -> Result<T>;
+    async fn create(db: Pool<Postgres>, req: CreateParams) -> Result<T>;
     //async fn update(db: &DbConn, user_id: Uuid, req: UpdateParams) -> Result<T>;
     //async fn delete(db: &DbConn, user_id: Uuid) -> Result<()>;
 }
 
 #[async_trait]
 impl Mutation<Model> for Entity {
-    async fn create(db: &DbConn, req: CreateParams) -> Result<Model> {
-        let message = ActiveModel {
-            user_id: ActiveValue::Set(Some(req.user_id)),
-            text: ActiveValue::Set(Some(req.text)),
-            state: match req.publish {
-                Some(publish) => {
-                    if publish == true {
-                        ActiveValue::Set(MessageState::Posted)
-                    } else {
-                        ActiveValue::NotSet
-                    }
-                }
-                _ => ActiveValue::NotSet,
-            },
-            thread_answer_id: match req.as_answer_thread_id {
-                Some(thread_id) => ActiveValue::Set(Some(thread_id)),
-                None => ActiveValue::NotSet,
-            },
-            thread_question_id: match req.as_question_thread_id {
-                Some(thread_id) => ActiveValue::Set(Some(thread_id)),
-                None => ActiveValue::NotSet,
-            },
-            ..Default::default()
-        };
+    //async fn create(db: &DbConn, req: CreateParams) -> Result<Model> {
+        //let message = ActiveModel {
+            //user_id: ActiveValue::Set(Some(req.user_id)),
+            //text: ActiveValue::Set(Some(req.text)),
+            //state: match req.publish {
+                //Some(publish) => {
+                    //if publish == true {
+                        //ActiveValue::Set(1)
+                    //} else {
+                        //ActiveValue::NotSet
+                    //}
+                //}
+                //_ => ActiveValue::NotSet,
+            //},
+            //thread_answer_id: match req.as_answer_thread_id {
+                //Some(thread_id) => ActiveValue::Set(Some(thread_id)),
+                //None => ActiveValue::NotSet,
+            //},
+            //thread_question_id: match req.as_question_thread_id {
+                //Some(thread_id) => ActiveValue::Set(Some(thread_id)),
+                //None => ActiveValue::NotSet,
+            //},
+            //..Default::default()
+        //};
 
-        Ok(message.insert(db).await?)
+        //Ok(message.insert(db).await?)
+    //}
+    async fn create(db: Pool<Postgres>, req: CreateParams) -> Result<Model> {
+        let message = sqlx::query_as!(
+            Model,
+            r#" insert into 
+                message (user_id, text, state, thread_answer_id, thread_question_id)
+                values($1, $2, $3, $4, $5) 
+                returning *
+            "#,
+            req.user_id,
+            req.text,
+            Into::<i16>::into(req.publish.unwrap_or(false)),
+            req.as_answer_thread_id,
+            req.as_question_thread_id
+        );
+
+        Ok(message.fetch_one(&db).await?)
     }
 }

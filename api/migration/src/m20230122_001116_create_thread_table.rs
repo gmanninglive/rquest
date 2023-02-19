@@ -53,6 +53,26 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        manager
+            .create_index(
+                IndexCreateStatement::new()
+                    .name("index_thread_question_id")
+                    .table(Thread::Table)
+                    .col(Thread::QuestionId)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                IndexCreateStatement::new()
+                    .name("index_thread_answer_id")
+                    .table(Thread::Table)
+                    .col(Thread::AnswerId)
+                    .to_owned(),
+            )
+            .await?;
+
         let stmt = Statement::from_string(
             manager.get_database_backend(),
             r#"SELECT trigger_updated_at('"thread"')"#.to_owned(),

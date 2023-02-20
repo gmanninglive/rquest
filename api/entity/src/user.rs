@@ -4,45 +4,17 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
-#[sea_orm(table_name = "user")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    #[sea_orm(column_type = "Text", unique)]
     pub username: String,
-    #[sea_orm(column_type = "Text", unique)]
     pub email: String,
-    #[sea_orm(column_type = "Text")]
     #[serde(skip_deserializing, skip_serializing)]
     pub password_hash: String,
-    #[sea_orm(column_type = "Text", nullable)]
     pub image: Option<String>,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
 }
-
-#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {
-    #[sea_orm(has_many = "super::message::Entity")]
-    Message,
-    #[sea_orm(has_many = "super::session::Entity")]
-    Session,
-}
-
-impl Related<super::message::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Message.def()
-    }
-}
-
-impl Related<super::session::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Session.def()
-    }
-}
-
-impl ActiveModelBehavior for ActiveModel {}
 
 #[derive(serde::Deserialize, Default, PartialEq, Eq)]
 #[serde(default)] // fill in any missing fields with `..UpdateUser::default()`
@@ -61,7 +33,7 @@ pub struct CreateParams {
     password: String,
 }
 
-impl Entity {
+impl Model {
     pub async fn find_by_id(db: &PgPool, user_id: Uuid) -> Result<Model> {
         Ok(sqlx::query_as!(
             Model,

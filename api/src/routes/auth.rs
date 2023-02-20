@@ -6,7 +6,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use entity::user::Entity as User;
+use entity::prelude::*;
 use rquest_core::auth::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

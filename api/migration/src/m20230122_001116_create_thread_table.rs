@@ -21,22 +21,6 @@ impl MigrationTrait for Migration {
                             .default(Expr::cust("uuid_generate_v1mc()"))
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Thread::QuestionId).uuid())
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-question-id")
-                            .from(Thread::Table, Thread::QuestionId)
-                            .to(Message::Table, Message::Id)
-                            .on_delete(ForeignKeyAction::SetNull),
-                    )
-                    .col(ColumnDef::new(Thread::AnswerId).uuid())
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-answer-id")
-                            .from(Thread::Table, Thread::AnswerId)
-                            .to(Message::Table, Message::Id)
-                            .on_delete(ForeignKeyAction::SetNull),
-                    )
                     .col(
                         ColumnDef::new(Thread::CreatedAt)
                             .timestamp_with_time_zone()
@@ -49,26 +33,6 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::cust("now()")),
                     )
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                IndexCreateStatement::new()
-                    .name("index_thread_question_id")
-                    .table(Thread::Table)
-                    .col(Thread::QuestionId)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                IndexCreateStatement::new()
-                    .name("index_thread_answer_id")
-                    .table(Thread::Table)
-                    .col(Thread::AnswerId)
                     .to_owned(),
             )
             .await?;

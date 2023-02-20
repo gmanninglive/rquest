@@ -7,7 +7,7 @@ use axum::{
     routing::{delete, get, patch, post},
     Json, Router,
 };
-use entity::user::{self, CreateParams, Entity as User, Model, UpdateParams};
+use entity::user::{CreateParams, Model as User, UpdateParams};
 use uuid::Uuid;
 
 async fn create_user(
@@ -20,7 +20,7 @@ async fn create_user(
 async fn find_by_id(
     State(state): State<AppState>,
     Path(user_id): Path<Uuid>,
-) -> Result<Json<Model>> {
+) -> Result<Json<User>> {
     Ok(Json(User::find_by_id(&state.db, user_id).await?))
 }
 
@@ -28,8 +28,8 @@ async fn update_user(
     auth_user: AuthUser,
     State(state): State<AppState>,
     Json(req): Json<UpdateParams>,
-) -> Result<Json<Model>> {
-    if req == user::UpdateParams::default() {
+) -> Result<Json<User>> {
+    if req == UpdateParams::default() {
         return find_by_id(State(state), Path(auth_user.id)).await;
     }
     Ok(Json(User::update(&state.db, auth_user.id, req).await?))
@@ -39,7 +39,7 @@ async fn delete_user(State(state): State<AppState>, Path(user_id): Path<Uuid>) -
     Ok(User::delete(&state.db, user_id).await?)
 }
 
-async fn index(State(state): State<AppState>) -> Result<Json<Vec<Model>>> {
+async fn index(State(state): State<AppState>) -> Result<Json<Vec<User>>> {
     Ok(Json(User::find_all(&state.db).await?))
 }
 

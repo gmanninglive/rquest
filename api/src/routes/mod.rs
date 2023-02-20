@@ -10,8 +10,8 @@ pub use crate::http::{Error, ResultExt};
 
 pub fn api_router() -> Router<AppState> {
     Router::new()
-        .merge(user::router())
-        .merge(thread::router())
-        .merge(message::router())
-        .merge(auth::router())
+    .merge(user::router())
+    .merge(thread::router())
+    .merge(message::router())
+    .merge(auth::router())
 }

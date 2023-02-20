@@ -5,8 +5,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use entity::message::Entity as Message;
-use entity::message::*;
+use entity::message::{Model as Message, *};
 use uuid::Uuid;
 
 async fn new_message(

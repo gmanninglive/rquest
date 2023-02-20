@@ -10,16 +10,16 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(Thread::Table)
-                    .add_column(ColumnDef::new(Thread::SessionId).uuid())
+                    .add_column(ColumnDef::new(Thread::EventId).uuid())
                     .to_owned(),
             )
             .await?;
         manager
             .create_foreign_key(
                 ForeignKey::create()
-                    .name("fk-session-id")
-                    .from(Thread::Table, Thread::SessionId)
-                    .to(Session::Table, Session::Id)
+                    .name("fk-event-id")
+                    .from(Thread::Table, Thread::EventId)
+                    .to(Event::Table, Event::Id)
                     .on_delete(ForeignKeyAction::SetNull)
                     .to_owned(),
             )
@@ -28,9 +28,9 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 IndexCreateStatement::new()
-                    .name("index_thread_on_session_id")
+                    .name("index_thread_on_event_id")
                     .table(Thread::Table)
-                    .col(Thread::SessionId)
+                    .col(Thread::EventId)
                     .to_owned(),
             )
             .await
@@ -41,8 +41,8 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(Thread::Table)
-                    .drop_foreign_key(Alias::new("fk-session-id"))
-                    .drop_column(Thread::SessionId)
+                    .drop_foreign_key(Alias::new("fk-event-id"))
+                    .drop_column(Thread::EventId)
                     .to_owned(),
             )
             .await
@@ -52,11 +52,11 @@ impl MigrationTrait for Migration {
 #[derive(Iden)]
 enum Thread {
     Table,
-    SessionId,
+    EventId,
 }
 
 #[derive(Iden)]
-enum Session {
+enum Event {
     Table,
     Id,
 }
